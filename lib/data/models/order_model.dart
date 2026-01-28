@@ -6,7 +6,7 @@ class OrderModel {
   final String id;
   final List<CartItem> products;
   final DateTime? dateSendOrder;
-  final double totalePrice;
+  double totalePrice;
   final StatusOrder? status;
   final String name;
   final String phone;
@@ -52,8 +52,10 @@ class OrderModel {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'status': statusOrderToString(status),
-      'dateSendOrder': Timestamp.fromDate(dateSendOrder!),
+      'status': statusOrderToString(status!),
+      'dateSendOrder': dateSendOrder != null
+          ? Timestamp.fromDate(dateSendOrder!)
+          : FieldValue.serverTimestamp(),
       'products': products.map((e) => e.toMap()).toList(),
       'totalePrice': totalePrice,
       'name': name,

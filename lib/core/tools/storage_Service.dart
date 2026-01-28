@@ -1,15 +1,18 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
+// ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as p;
-import 'package:image_picker/image_picker.dart';
 
 class FirebaseStorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  /// ضغط الصورة قبل الرفع
-  Future<File?> _compressImage(XFile image) async {
+  /// ضغط الصورة قبل الرفع (Mobile only)
+  Future<XFile?> _compressImage(XFile image) async {
+    if (kIsWeb) return null; // لا ضغط على Web
+
     try {
       final tempDir = await getTemporaryDirectory();
       final targetPath = p.join(
@@ -17,20 +20,18 @@ class FirebaseStorageService {
         '${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
 
-      // ضغط الصورة باستخدام FlutterImageCompress
       final compressedFile = await FlutterImageCompress.compressAndGetFile(
-        image.path, // path من XFile
+        image.path,
         targetPath,
         quality: 60,
         format: CompressFormat.jpeg,
       );
 
-      if (compressedFile == null) return null;
-
-      // إذا كان نوع compressedFile هو XFile (أحيانًا يظهر في بعض الإصدارات)
-      return File(compressedFile.path);
+      return compressedFile;
     } catch (e) {
-      print("❌ Compression error: $e");
+      if (kDebugMode) {
+        print("❌ Compression error: $e");
+      }
       return null;
     }
   }
@@ -38,21 +39,28 @@ class FirebaseStorageService {
   /// رفع صورة مضغوطة وإرجاع رابطها
   Future<String?> uploadImage(XFile imageFile, String folderName) async {
     try {
-      final compressedFile = await _compressImage(imageFile);
-
-      if (compressedFile == null) {
-        print("❌ Could not compress image");
-        return null;
+      if (kIsWeb) {
+        // Web: رفع الصورة مباشرة بدون ضغط
+        final data = await imageFile.readAsBytes();
+        final fileName = DateTime.now().millisecondsSinceEpoch.toString();
+        final ref = _storage.ref().child('$folderName/$fileName.jpg');
+        final uploadTask = await ref.putData(data);
+        final downloadUrl = await uploadTask.ref.getDownloadURL();
+        return downloadUrl;
+      } else {
+        // Mobile: ضغط الصورة قبل الرفع
+        final compressedFile = await _compressImage(imageFile);
+        if (compressedFile == null) return null;
+        final fileName = DateTime.now().millisecondsSinceEpoch.toString();
+        final ref = _storage.ref().child('$folderName/$fileName.jpg');
+        final uploadTask = await ref.putFile(compressedFile as File);
+        final downloadUrl = await uploadTask.ref.getDownloadURL();
+        return downloadUrl;
       }
-
-      final fileName = DateTime.now().millisecondsSinceEpoch.toString();
-      final ref = _storage.ref().child('$folderName/$fileName.jpg');
-
-      final uploadTask = await ref.putFile(compressedFile);
-      final downloadUrl = await uploadTask.ref.getDownloadURL();
-      return downloadUrl;
     } catch (e) {
-      print('❌ Error uploading image: $e');
+      if (kDebugMode) {
+        print('❌ Error uploading image: $e');
+      }
       return null;
     }
   }

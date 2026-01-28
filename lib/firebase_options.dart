@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'gymweb-1e348.firebasestorage.app',
     measurementId: 'G-7YX6304JDK',
   );
+
 }

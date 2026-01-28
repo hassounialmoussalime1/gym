@@ -26,4 +26,12 @@ class CategoriesService {
       print('eroore add new categorie: $e');
     }
   }
+
+  Future<void> updateCategorie(CategoryModel newcat) async {
+    try {
+      await collectionCategories.doc(newcat.id).set(newcat.toMap());
+    } catch (e) {
+      print('errore update dat $e');
+    }
+  }
 }
